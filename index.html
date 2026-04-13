@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TDS Extractor — 물성 데이터 자동 추출</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Pretendard:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-mark">⬡</span>
+        <span class="logo-text">TDS<em>extractor</em></span>
+      </div>
+      <p class="header-sub">TDS PDF → 물성 데이터 자동 추출 → Excel</p>
+    </div>
+  </header>
+
+  <main class="main">
+
+    <!-- STEP INDICATOR -->
+    <div class="steps-bar">
+      <div class="step active" data-step="1"><span class="step-num">01</span><span class="step-label">API 키 입력</span></div>
+      <div class="step-connector"></div>
+      <div class="step" data-step="2"><span class="step-num">02</span><span class="step-label">PDF 업로드</span></div>
+      <div class="step-connector"></div>
+      <div class="step" data-step="3"><span class="step-num">03</span><span class="step-label">분석 실행</span></div>
+      <div class="step-connector"></div>
+      <div class="step" data-step="4"><span class="step-num">04</span><span class="step-label">결과 확인 & 다운로드</span></div>
+    </div>
+
+    <!-- PANEL: API KEY -->
+    <section class="panel panel-api" id="panelApi">
+      <div class="panel-header">
+        <div class="panel-num">01</div>
+        <div>
+          <h2 class="panel-title">Anthropic API Key</h2>
+          <p class="panel-desc">분석에 사용할 API Key를 입력합니다. Key는 브라우저 내에서만 사용되며 저장되지 않습니다.</p>
+        </div>
+      </div>
+      <div class="api-input-row">
+        <div class="input-wrapper">
+          <input type="password" id="apiKeyInput" placeholder="sk-ant-api03-..." autocomplete="off" spellcheck="false" />
+          <button class="btn-eye" id="btnToggleKey" title="보기/숨기기">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+        <button class="btn btn-secondary" id="btnSaveKey">저장</button>
+      </div>
+      <div class="api-status" id="apiStatus"></div>
+    </section>
+
+    <!-- PANEL: UPLOAD -->
+    <section class="panel panel-upload" id="panelUpload">
+      <div class="panel-header">
+        <div class="panel-num">02</div>
+        <div>
+          <h2 class="panel-title">TDS PDF 업로드</h2>
+          <p class="panel-desc">여러 개의 TDS PDF를 동시에 업로드할 수 있습니다.</p>
+        </div>
+      </div>
+      <div class="dropzone" id="dropzone">
+        <div class="dropzone-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
+        <p class="dropzone-text">PDF 파일을 드래그하거나<br/><strong>클릭하여 선택</strong></p>
+        <p class="dropzone-hint">최대 10개 파일 · PDF only</p>
+        <input type="file" id="fileInput" accept=".pdf" multiple hidden />
+      </div>
+      <div class="file-list" id="fileList"></div>
+    </section>
+
+    <!-- PANEL: ANALYZE -->
+    <section class="panel panel-analyze" id="panelAnalyze">
+      <div class="panel-header">
+        <div class="panel-num">03</div>
+        <div>
+          <h2 class="panel-title">분석 실행</h2>
+          <p class="panel-desc">AI가 PDF에서 물성 데이터를 추출하고 표준화합니다.</p>
+        </div>
+      </div>
+      <div class="analyze-controls">
+        <button class="btn btn-primary btn-large" id="btnAnalyze" disabled>
+          <span class="btn-icon">▶</span> 분석 시작
+        </button>
+      </div>
+      <div class="progress-area" id="progressArea" style="display:none">
+        <div class="progress-log" id="progressLog"></div>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <p class="progress-pct" id="progressPct">0%</p>
+      </div>
+    </section>
+
+    <!-- PANEL: RESULTS -->
+    <section class="panel panel-results" id="panelResults" style="display:none">
+      <div class="panel-header">
+        <div class="panel-num">04</div>
+        <div>
+          <h2 class="panel-title">추출 결과</h2>
+          <p class="panel-desc">추출된 물성 데이터를 확인하고 Excel로 다운로드합니다.</p>
+        </div>
+        <div class="panel-actions">
+          <button class="btn btn-outline" id="btnClearAll">초기화</button>
+          <button class="btn btn-excel" id="btnDownload">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Excel 다운로드
+          </button>
+        </div>
+      </div>
+
+      <!-- Summary cards -->
+      <div class="summary-cards" id="summaryCards"></div>
+
+      <!-- Filters -->
+      <div class="filter-bar" id="filterBar">
+        <div class="filter-group">
+          <label>제조사</label>
+          <select id="filterManufacturer"><option value="">전체</option></select>
+        </div>
+        <div class="filter-group">
+          <label>물성 항목</label>
+          <select id="filterProperty"><option value="">전체</option></select>
+        </div>
+        <div class="filter-group">
+          <label>검색</label>
+          <input type="text" id="filterSearch" placeholder="Grade, 단위, 조건..." />
+        </div>
+        <button class="btn btn-ghost btn-sm" id="btnResetFilter">초기화</button>
+      </div>
+
+      <!-- Results Table -->
+      <div class="table-wrap">
+        <table class="results-table" id="resultsTable">
+          <thead>
+            <tr>
+              <th>제조사</th>
+              <th>Grade</th>
+              <th>물성 항목 (표준)</th>
+              <th>값</th>
+              <th>단위</th>
+              <th>조건</th>
+              <th>시험 방법</th>
+            </tr>
+          </thead>
+          <tbody id="resultsBody"></tbody>
+        </table>
+      </div>
+      <p class="table-count" id="tableCount"></p>
+
+      <!-- Errors -->
+      <div class="error-list" id="errorList"></div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <p>TDS Extractor · Anthropic Claude API 기반 · 데이터는 브라우저 내에서만 처리됩니다</p>
+  </footer>
+
+  <script src="js/pdfReader.js"></script>
+  <script src="js/aiExtractor.js"></script>
+  <script src="js/excelExport.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
